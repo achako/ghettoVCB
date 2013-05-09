@@ -1036,7 +1036,7 @@ ghettoVCB() {
                                 elif [[ "${DISK_BACKUP_FORMAT}" == "2gbsparse" ]] ; then
                                     FORMAT_OPTION="2gbsparse"
                                 elif [[ "${DISK_BACKUP_FORMAT}" == "thin" ]] ; then
-                                    FORMAT_OPTION="thin"
+                                    FORMAT_OPTION="monosparse"
                                 elif [[ "${DISK_BACKUP_FORMAT}" == "eagerzeroedthick" ]] ; then
                                     if [[ "${VER}" == "4" ]] || [[ "${VER}" == "5" ]] ; then
                                         FORMAT_OPTION="eagerzeroedthick"
