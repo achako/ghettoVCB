@@ -102,6 +102,23 @@ VM_STARTUP_ORDER=
 # all VMs have been restarted
 ADDITIONAL_ROTATION_PATH=
 
+##########################################################
+# REMOTE_BACKUP CONFIGURATIONS
+#
+
+#他のPCにバックアップを貯める( 1=yes, 0=no )
+USE_REMOTE_BACKUP_SERVER=0
+
+#バックアップ先のPCのIPアドレスまたはホスト名
+REMOTE_BACKUP_SERVER=
+
+#バックアップディレクトリパスの指定
+REMOTE_BACKUP_DIR=
+
+#PCのログインユーザーの指定
+REMOTE_BACKUP_USER=
+
+
 ############################
 ######### DEBUG ############
 ############################
@@ -504,6 +521,12 @@ dumpVMConfigurations() {
         logger "info" "CONFIG - EMAIL_FROM = ${EMAIL_FROM}"
         logger "info" "CONFIG - EMAIL_TO = ${EMAIL_TO}"
         logger "info" "CONFIG - WORKDIR_DEBUG = ${WORKDIR_DEBUG}"
+    fi
+    logger "info" "USE_REMOTE_BACKUP_SERVER = ${USE_REMOTE_BACKUP_SERVER}"
+    if [[ "${USE_REMOTE_BACKUP_SERVER}" -eq 1 ]]; then
+        logger "info" "CONFIG - REMOTE_BACKUP_SERVER = ${REMOTE_BACKUP_SERVER}"
+        logger "info" "CONFIG - REMOTE_BACKUP_DIR = ${REMOTE_BACKUP_DIR}"
+        logger "info" "CONFIG - REMOTE_REMOTE_BACKUP_USER = ${REMOTE_BACKUP_USER}"
     fi
     logger "info" ""
 }
@@ -1117,6 +1140,18 @@ ghettoVCB() {
                     # verify compression
                     if [[ $? -eq 0 ]] && [[ -f "${COMPRESSED_ARCHIVE_FILE}" ]]; then
                         logger "info" "Successfully compressed backup for ${VM_NAME}!\n"
+                        logger "info" "remove non compressed directory ${BACKUP_DIR}/${VM_NAME}-${VM_BACKUP_DIR_NAMING_CONVENTION}"
+                        rm -r "${BACKUP_DIR}/${VM_NAME}-${VM_BACKUP_DIR_NAMING_CONVENTION}"
+                        
+                        if [[ "${USE_REMOTE_BACKUP_SERVER}"  -eq 1 ]]; then
+                            logger "info" "copy\" ${COMPRESSED_ARCHIVE_FILE}\" to \"${REMOTE_BACKUP_USER}@${REMOTE_BACKUP_SERVER}:${REMOTE_BACKUP_DIR}\""
+                            scp "${COMPRESSED_ARCHIVE_FILE}" ${REMOTE_BACKUP_USER}@${REMOTE_BACKUP_SERVER}:${REMOTE_BACKUP_DIR}
+                            if [[ $? -eq 0 ]]; then
+		                        logger "info" "remove compressed directory in this machine ${COMPRESSED_ARCHIVE_FILE}"
+	   	                        rm -r "${COMPRESSED_ARCHIVE_FILE}"
+                            fi
+                        fi
+
                         COMPRESSED_OK=1
                     else
                         logger "info" "Error in compressing ${VM_NAME}!\n"
@@ -1125,6 +1160,14 @@ ghettoVCB() {
                     rm -rf "${VM_BACKUP_DIR}"
                     checkVMBackupRotation "${BACKUP_DIR}" "${VM_NAME}"
                 else
+                    if [[ "${USE_REMOTE_BACKUP_SERVER}"  -eq 1 ]]; then
+                        logger "info" "copy\"${BACKUP_DIR}/${VM_NAME}-${VM_BACKUP_DIR_NAMING_CONVENTION}\" to \"${REMOTE_BACKUP_USER}@${REMOTE_BACKUP_SERVER}:${REMOTE_BACKUP_DIR}\""
+                        scp "${BACKUP_DIR}/${VM_NAME}-${VM_BACKUP_DIR_NAMING_CONVENTION}" ${REMOTE_BACKUP_USER}@${REMOTE_BACKUP_SERVER}:${REMOTE_BACKUP_DIR}
+                        if [[ $? -eq 0 ]]; then
+	                        logger "info" "remove directory in this machine ${COMPRESSED_ARCHIVE_FILE}"
+	                        rm -r "${BACKUP_DIR}/${VM_NAME}-${VM_BACKUP_DIR_NAMING_CONVENTION}"
+                        fi
+                        fi
                     checkVMBackupRotation "${BACKUP_DIR}" "${VM_NAME}"
                 fi
                 IFS=${TMP_IFS}
