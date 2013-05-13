@@ -598,8 +598,7 @@ checkVMBackupRotation() {
     BACKUPS_TO_KEEP=$(ls -t "${BACKUP_DIR_PATH}" | grep "${VM_TO_SEARCH_FOR}-[0-9]\{4\}-[0-9]\{2\}-[0-9]\{2\}_[0-9]\{2\}-[0-9]\{2\}-[0-9]\{2\}" | head -"${VM_BACKUP_ROTATION_COUNT}")
 
     ORIG_IFS=${IFS}
-    IFS='
-'
+    IFS=''
     for i in ${LIST_BACKUPS}; do
         FOUND=0
         for j in ${BACKUPS_TO_KEEP}; do
@@ -846,7 +845,10 @@ ghettoVCB() {
         VMX_CONF=$(grep -e "\"${VM_NAME}\"" ${WORKDIR}/vms_list | awk -F ";" '{print $4}' | sed 's/\[//;s/\]//;s/"//g')
         VMX_PATH="/vmfs/volumes/${VMFS_VOLUME}/${VMX_CONF}"
         VMX_DIR=$(dirname "${VMX_PATH}")
-
+        NVRAM_PATH=$(find ${VMX_DIR} -name "*.nvram" )
+        VMSD_PATH=$(find ${VMX_DIR} -name "*.vmsd" )
+        VMXF_PATH=$(find ${VMX_DIR} -name "*.vmxf" )
+        
         #storage info
         if [[ ! -z ${VM_ID} ]] && [[ "${LOG_LEVEL}" != "dryrun" ]]; then
             storageInfo "before"
@@ -968,6 +970,9 @@ ghettoVCB() {
             mkdir -p "${VM_BACKUP_DIR}"
 
             cp "${VMX_PATH}" "${VM_BACKUP_DIR}"
+            cp "${NVRAM_PATH}" "${VM_BACKUP_DIR}"
+            cp "${VMSD_PATH}" "${VM_BACKUP_DIR}"
+            cp "${VMXF_PATH}" "${VM_BACKUP_DIR}"
 
             #new variable to keep track on whether VM has independent disks
             VM_HAS_INDEPENDENT_DISKS=0
