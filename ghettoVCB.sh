@@ -106,16 +106,16 @@ ADDITIONAL_ROTATION_PATH=
 # REMOTE_BACKUP CONFIGURATIONS
 #
 
-#����PC�Ƀo�b�N�A�b�v�𒙂߂�( 1=yes, 0=no )
+#他のPCにバックアップを貯める( 1=yes, 0=no )
 USE_REMOTE_BACKUP_SERVER=0
 
-#�o�b�N�A�b�v���PC��IP�A�h���X�܂��̓z�X�g��
+#バックアップ先のPCのIPアドレスまたはホスト名
 REMOTE_BACKUP_SERVER=
 
-#�o�b�N�A�b�v�f�B���N�g���p�X�̎w��
+#バックアップディレクトリパスの指定
 REMOTE_BACKUP_DIR=
 
-#PC�̃��O�C�����[�U�[�̎w��
+#PCのログインユーザーの指定
 REMOTE_BACKUP_USER=
 
 
@@ -1064,13 +1064,15 @@ ghettoVCB() {
                                 elif [[ "${DISK_BACKUP_FORMAT}" == "2gbsparse" ]] ; then
                                     FORMAT_OPTION="2gbsparse"
                                 elif [[ "${DISK_BACKUP_FORMAT}" == "thin" ]] ; then
-                                    FORMAT_OPTION="monosparse"
+                                    FORMAT_OPTION="thin"
                                 elif [[ "${DISK_BACKUP_FORMAT}" == "eagerzeroedthick" ]] ; then
                                     if [[ "${VER}" == "4" ]] || [[ "${VER}" == "5" ]] ; then
                                         FORMAT_OPTION="eagerzeroedthick"
                                     else
                                         FORMAT_OPTION=""
                                     fi
+                                elif [[ "${DISK_BACKUP_FORMAT}" == "monosparse" ]] ; then
+                                    FORMAT_OPTION="monosparse"
                                 fi
 
                                 if  [[ "${FORMAT_OPTION}" == "UNKNOWN" ]] ; then
