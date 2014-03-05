@@ -2,7 +2,13 @@
 # Created Date: 11/17/2008
 # http://www.virtuallyghetto.com/
 # http://communities.vmware.com/docs/DOC-8760
+
 ##################################################################
+#                   User Definable Parameters
+##################################################################
+
+LAST_MODIFIED_DATE=2013_26_11
+VERSION=2
 
 # directory that all VM backups should go (e.g. /vmfs/volumes/SAN_LUN1/mybackupdir)
 VM_BACKUP_VOLUME=/vmfs/volumes/mini-local-datastore-2/backups
@@ -43,6 +49,9 @@ VM_SNAPSHOT_MEMORY=0
 # Quiesce VM when taking snapshot (requires VMware Tools to be installed)
 VM_SNAPSHOT_QUIESCE=0
 
+# default 15min timeout
+SNAPSHOT_TIMEOUT=15
+
 # Allow VMs with snapshots to be backed up, this WILL CONSOLIDATE EXISTING SNAPSHOTS!
 ALLOW_VMS_WITH_SNAPSHOTS_TO_BE_BACKEDUP=0
 
@@ -58,6 +67,9 @@ UNMOUNT_NFS=0
 
 # IP Address of NFS Server
 NFS_SERVER=172.51.0.192
+
+# NFS Version (v3=nfs v4=nfsv41) - Only v3 is valid for 5.5
+NFS_VERSION=nfs
 
 # Path of exported folder residing on NFS Server (e.g. /some/mount/point )
 NFS_MOUNT=/upload
@@ -94,6 +106,9 @@ EMAIL_TO=auroa@primp-industries.com
 VM_SHUTDOWN_ORDER=
 VM_STARTUP_ORDER=
 
+# RSYNC LINK 1=yes, 0 = no
+RSYNC_LINK=0
+
 # DO NOT USE - UNTESTED CODE
 # Path to another location that should have backups rotated,
 # this is useful when your backups go to a temporary location
@@ -106,16 +121,16 @@ ADDITIONAL_ROTATION_PATH=
 # REMOTE_BACKUP CONFIGURATIONS
 #
 
-#ä»–ã®PCã«ãƒãƒƒã‚¯ã‚¢ãƒƒãƒ—ã‚’è²¯ã‚ã‚‹( 1=yes, 0=no )
+#‘¼‚ÌPC‚ÉƒoƒbƒNƒAƒbƒv‚ð’™‚ß‚é( 1=yes, 0=no )
 USE_REMOTE_BACKUP_SERVER=0
 
-#ãƒãƒƒã‚¯ã‚¢ãƒƒãƒ—å…ˆã®PCã®IPã‚¢ãƒ‰ãƒ¬ã‚¹ã¾ãŸã¯ãƒ›ã‚¹ãƒˆå
+#ƒoƒbƒNƒAƒbƒvæ‚ÌPC‚ÌIPƒAƒhƒŒƒX‚Ü‚½‚ÍƒzƒXƒg–¼
 REMOTE_BACKUP_SERVER=
 
-#ãƒãƒƒã‚¯ã‚¢ãƒƒãƒ—ãƒ‡ã‚£ãƒ¬ã‚¯ãƒˆãƒªãƒ‘ã‚¹ã®æŒ‡å®š
+#ƒoƒbƒNƒAƒbƒvƒfƒBƒŒƒNƒgƒŠƒpƒX‚ÌŽw’è
 REMOTE_BACKUP_DIR=
 
-#PCã®ãƒ­ã‚°ã‚¤ãƒ³ãƒ¦ãƒ¼ã‚¶ãƒ¼ã®æŒ‡å®š
+#PC‚ÌƒƒOƒCƒ“ƒ†[ƒU[‚ÌŽw’è
 REMOTE_BACKUP_USER=
 
 
@@ -123,21 +138,13 @@ REMOTE_BACKUP_USER=
 ######### DEBUG ############
 ############################
 
-# Do not remove workdir on exit: 1=yes, 0=no
-WORKDIR_DEBUG=0
-
 ########################## DO NOT MODIFY PAST THIS LINE ##########################
 
-# RSYNC LINK 1=yes, 0 = no
-RSYNC_LINK=0
-
+# Do not remove workdir on exit: 1=yes, 0=no
+WORKDIR_DEBUG=0
 LOG_LEVEL="info"
 VMDK_FILES_TO_BACKUP="all"
-# default 15min timeout
-SNAPSHOT_TIMEOUT=15
 
-LAST_MODIFIED_DATE=2013_01_11
-VERSION=0
 VERSION_STRING=${LAST_MODIFIED_DATE}_${VERSION}
 
 # Directory naming convention for backup rotations (please ensure there are no spaces!)
@@ -270,17 +277,14 @@ sanityCheck() {
 
     # determine ESX(i) version - Need to keep it generic due to difference in 3.5
     ESX_VERSION=$(vmware -v)
+    ESX_RELEASE=$(uname -r)
 
-    if echo "${ESX_VERSION}" | grep -E '5.0.0|5.1.0' > /dev/null 2>&1; then
-        VER=5
-    elif echo "${ESX_VERSION}" | grep -E '4.0.0|4.1.0' > /dev/null 2>&1; then
-        VER=4
-    elif echo "${ESX_VERSION}" | grep '3.5.0' > /dev/null 2>&1; then
-        VER=3
-    else
-        echo "You're not running ESX(i) 3.5, 4.x, 5.x!"
-        exit 1
-    fi
+    case "${ESX_VERSION}" in
+        5.0.0|5.1.0|5.5.0)    VER=5; break;;
+        4.0.0|4.1.0)          VER=4; break;;
+        3.5.0|3i)             VER=3; break;;
+        *)              echo "You're not running ESX(i) 3.5, 4.x, 5.x!"; exit 1; break;;
+    esac
 
     NEW_VIMCMD_SNAPSHOT="no"
     ${VMWARE_CMD} vmsvc/snapshot.remove 2>&1 | grep "snapshotId" > /dev/null
@@ -300,7 +304,7 @@ sanityCheck() {
     [[ ! -f /bin/tar ]] && TAR="busybox tar"
 
     # Enable multiextent VMkernel module if disk format is 2gbsparse (disabled by default in 5.1)
-    if [[ "${VMDK_DISK_FORMAT}" == "2gbsparse" ]] && [[ "${VER}" -eq 5 ]]; then
+    if [[ "${DISK_BACKUP_FORMAT}" == "2gbsparse" ]] && [[ "${VER}" -eq 5 ]]; then
         esxcli system module list | grep multiextent > /dev/null 2>&1
 	if [ $? -eq 1 ]; then
             logger "info" "multiextent VMkernel module is not loaded & is required for 2gbsparse, enabling ..."
@@ -345,6 +349,7 @@ captureDefaultConfigurations() {
     DEFAULT_WORKDIR_DEBUG="${WORKDIR_DEBUG}"
     DEFAULT_VM_SHUTDOWN_ORDER="${VM_SHUTDOWN_ORDER}"
     DEFAULT_VM_STARTUP_ORDER="${VM_STARTUP_ORDER}"
+    DEFAULT_RSYNC_LINK="${RSYNC_LINK}"
 }
 
 useDefaultConfigurations() {
@@ -365,6 +370,7 @@ useDefaultConfigurations() {
     WORKDIR_DEBUG="${DEFAULT_WORKDIR_DEBUG}"
     VM_SHUTDOWN_ORDER="${DEFAULT_VM_SHUTDOWN_ORDER}"
     VM_STARTUP_ORDER="${DEFAULT_VM_STARTUP_ORDER}"
+    RSYNC_LINK="${RSYNC_LINK}"
 }
 
 reConfigureGhettoVCBConfiguration() {
@@ -494,6 +500,7 @@ dumpVMConfigurations() {
         logger "info" "CONFIG - ENABLE_NON_PERSISTENT_NFS = ${ENABLE_NON_PERSISTENT_NFS}"
         logger "info" "CONFIG - UNMOUNT_NFS = ${UNMOUNT_NFS}"
         logger "info" "CONFIG - NFS_SERVER = ${NFS_SERVER}"
+        logger "info" "CONFIG - NFS_VERSION = ${NFS_VERSION}"
         logger "info" "CONFIG - NFS_MOUNT = ${NFS_MOUNT}"
     fi
     logger "info" "CONFIG - VM_BACKUP_ROTATION_COUNT = ${VM_BACKUP_ROTATION_COUNT}"
@@ -513,6 +520,7 @@ dumpVMConfigurations() {
     logger "info" "CONFIG - VMDK_FILES_TO_BACKUP = ${VMDK_FILES_TO_BACKUP}"
     logger "info" "CONFIG - VM_SHUTDOWN_ORDER = ${VM_SHUTDOWN_ORDER}"
     logger "info" "CONFIG - VM_STARTUP_ORDER = ${VM_STARTUP_ORDER}"
+    logger "info" "CONFIG - RSYNC_LINK = ${RSYNC_LINK}"
     logger "info" "CONFIG - EMAIL_LOG = ${EMAIL_LOG}"
     if [[ "${EMAIL_LOG}" -eq 1 ]]; then
         logger "info" "CONFIG - EMAIL_SERVER = ${EMAIL_SERVER}"
@@ -780,8 +788,12 @@ ghettoVCB() {
             #1 = readonly
             #0 = readwrite
             logger "debug" "Mounting NFS: ${NFS_SERVER}:${NFS_MOUNT} to /vmfs/volume/${NFS_LOCAL_NAME}"
-            ${VMWARE_CMD} hostsvc/datastore/nas_create "${NFS_LOCAL_NAME}" "${NFS_SERVER}" "${NFS_MOUNT}" 0
-        fi
+	    if [ ${ESX_RELEASE} == "5.5.0" ]; then
+                ${VMWARE_CMD} hostsvc/datastore/nas_create "${NFS_LOCAL_NAME}" "${NFS_VERSION}" "${NFS_MOUNT}" 0 "${NFS_SERVER}"
+            else
+                ${VMWARE_CMD} hostsvc/datastore/nas_create "${NFS_LOCAL_NAME}" "${NFS_SERVER}" "${NFS_MOUNT}" 0
+            fi
+	fi
     fi
 
     captureDefaultConfigurations
@@ -918,14 +930,12 @@ ghettoVCB() {
             logger "dryrun" "###############################################\n"
 
         #checks to see if the VM has any snapshots to start with
-        elif ls "${VMX_DIR}" | grep -q "\-delta\.vmdk" > /dev/null 2>&1; then
-            if [ ${ALLOW_VMS_WITH_SNAPSHOTS_TO_BE_BACKEDUP} -eq 0 ]; then
-                logger "info" "Snapshot found for ${VM_NAME}, backup will not take place\n"
-                VM_FAILED=1
-            fi
         elif [[ -f "${VMX_PATH}" ]] && [[ ! -z "${VMX_PATH}" ]]; then
             if ls "${VMX_DIR}" | grep -q "\-delta\.vmdk" > /dev/null 2>&1; then
-                if [ ${ALLOW_VMS_WITH_SNAPSHOTS_TO_BE_BACKEDUP} -eq 1 ]; then
+                if [ ${ALLOW_VMS_WITH_SNAPSHOTS_TO_BE_BACKEDUP} -eq 0 ]; then
+                    logger "info" "Snapshot found for ${VM_NAME}, backup will not take place\n"
+                    VM_FAILED=1
+                elif [ ${ALLOW_VMS_WITH_SNAPSHOTS_TO_BE_BACKEDUP} -eq 1 ]; then
                     logger "info" "Snapshot found for ${VM_NAME}, consolidating ALL snapshots now (this can take awhile) ...\n"
                     $VMWARE_CMD vmsvc/snapshot.removeall ${VM_ID} > /dev/null 2>&1
                 fi
