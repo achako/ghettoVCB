@@ -276,7 +276,7 @@ sanityCheck() {
     fi
 
     # determine ESX(i) version - Need to keep it generic due to difference in 3.5
-    ESX_VERSION=$(vmware -v)
+	ESX_VERSION=$(vmware -v | awk '{print $3}')
     ESX_RELEASE=$(uname -r)
 
     case "${ESX_VERSION}" in
